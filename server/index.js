@@ -1,6 +1,10 @@
 const { PrismaClient } = require("@prisma/client");
 const express = require("express");
-const { ApolloServer, gql } = require("apollo-server-express");
+const {
+  ApolloServer,
+  AuthenticationError,
+  gql,
+} = require("apollo-server-express");
 const { ApolloServerPluginDrainHttpServer } = require("apollo-server-core");
 const http = require("http");
 const axios = require("axios");
@@ -89,14 +93,19 @@ async function startApolloServer() {
   const server = new ApolloServer({
     typeDefs,
     resolvers,
-    context: async (req) => {
-      // verify req.headers.authorization
-      // get user related to JWT
-      const user = await prisma.user.findUnique({ where: { id: 1 } });
-      return {
-        prisma,
-        user,
-      };
+    context: async ({ req }) => {
+      try {
+        const [, token] = req.headers.authorization.match(/^bearer (\S+)$/i);
+        const { id } = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await prisma.user.findUnique({ where: { id } });
+        return {
+          prisma,
+          user,
+        };
+      } catch (error) {
+        console.log(error);
+        throw new AuthenticationError("Invalid token");
+      }
     },
     plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
   });
