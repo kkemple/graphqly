@@ -3,6 +3,10 @@ const express = require("express");
 const { ApolloServer, gql } = require("apollo-server-express");
 const { ApolloServerPluginDrainHttpServer } = require("apollo-server-core");
 const http = require("http");
+const axios = require("axios");
+const cors = require("cors");
+const querystring = require("querystring");
+const jwt = require("jsonwebtoken");
 
 const typeDefs = gql`
   type Query {
@@ -38,11 +42,50 @@ const resolvers = {
 };
 
 const port = process.env.PORT || 4000;
+const prisma = new PrismaClient();
+const app = express();
+const httpServer = http.createServer(app);
+
+app.use(cors({ origin: "http://localhost:3000" }));
+app.use(express.text());
+
+app.post("/auth", (req, res) => {
+  axios
+    .post("https://github.com/login/oauth/access_token", {
+      client_id: process.env.GITHUB_APP_ID,
+      client_secret: process.env.GITHUB_APP_SECRET,
+      code: req.body,
+    })
+    .then(({ data }) => {
+      const { access_token } = querystring.parse(data);
+      return axios.get("https://api.github.com/user", {
+        headers: {
+          Authorization: `token ${access_token}`,
+        },
+      });
+    })
+    .then(async ({ data }) => {
+      const user = await prisma.user.findUnique({
+        where: { githubId: data.id },
+      });
+      return (
+        user ||
+        prisma.user.create({
+          data: {
+            name: data.name,
+            email: data.email,
+            githubId: data.id,
+          },
+        })
+      );
+    })
+    .then((user) => {
+      const token = jwt.sign(user, process.env.JWT_SECRET);
+      res.send(token);
+    });
+});
 
 async function startApolloServer() {
-  const app = express();
-  const httpServer = http.createServer(app);
-  const prisma = new PrismaClient();
   const server = new ApolloServer({
     typeDefs,
     resolvers,

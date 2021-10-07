@@ -11,11 +11,11 @@ generator client {
 }
 
 model User {
-  id          Int       @id @default(autoincrement())
-  email       String    @unique
-  name        String
-  githubToken String
-  projects    Project[]
+  id       Int       @id @default(autoincrement())
+  email    String    @unique
+  name     String
+  githubId Int       @unique
+  projects Project[]
 }
 
 model Project {
