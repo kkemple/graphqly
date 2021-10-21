@@ -1,49 +1,14 @@
 const { PrismaClient } = require("@prisma/client");
 const express = require("express");
-const {
-  ApolloServer,
-  AuthenticationError,
-  gql,
-} = require("apollo-server-express");
+const { ApolloServer, AuthenticationError } = require("apollo-server-express");
 const { ApolloServerPluginDrainHttpServer } = require("apollo-server-core");
 const http = require("http");
-const axios = require("axios");
 const cors = require("cors");
+const axios = require("axios");
 const querystring = require("querystring");
 const jwt = require("jsonwebtoken");
-
-const typeDefs = gql`
-  type Query {
-    me: User
-  }
-
-  type User {
-    email: String!
-    name: String!
-    projects: [Project!]!
-  }
-
-  type Project {
-    id: ID!
-    name: String!
-    repoUrl: String!
-    branchName: String!
-    schemaPath: String!
-  }
-`;
-
-const resolvers = {
-  Query: {
-    me: async (_, __, { user }) => {
-      return user;
-    },
-  },
-  User: {
-    projects: async (_, __, { user, prisma }) => {
-      return prisma.projects.findWhere({ userId: user.id });
-    },
-  },
-};
+const { GraphQLClient } = require("graphql-request");
+const { typeDefs, resolvers } = require("./schema");
 
 const port = process.env.PORT || 4000;
 const prisma = new PrismaClient();
@@ -60,15 +25,16 @@ app.post("/auth", (req, res) => {
       client_secret: process.env.GITHUB_APP_SECRET,
       code: req.body,
     })
-    .then(({ data }) => {
+    .then(async ({ data }) => {
       const { access_token } = querystring.parse(data);
-      return axios.get("https://api.github.com/user", {
+      const response = await axios.get("https://api.github.com/user", {
         headers: {
           Authorization: `token ${access_token}`,
         },
       });
+      return [response, access_token];
     })
-    .then(async ({ data }) => {
+    .then(async ([{ data }, githubAccessToken]) => {
       const user = await prisma.user.findUnique({
         where: { githubId: data.id },
       });
@@ -79,6 +45,7 @@ app.post("/auth", (req, res) => {
             name: data.name,
             email: data.email,
             githubId: data.id,
+            githubAccessToken,
           },
         })
       );
@@ -98,9 +65,17 @@ async function startApolloServer() {
         const [, token] = req.headers.authorization.match(/^bearer (\S+)$/i);
         const { id } = jwt.verify(token, process.env.JWT_SECRET);
         const user = await prisma.user.findUnique({ where: { id } });
+
+        const github = new GraphQLClient("https://api.github.com/graphql", {
+          headers: {
+            authorization: `Bearer ${user.githubAccessToken}`,
+          },
+        });
+
         return {
           prisma,
           user,
+          github,
         };
       } catch (error) {
         console.log(error);

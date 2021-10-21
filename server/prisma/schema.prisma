@@ -11,19 +11,21 @@ generator client {
 }
 
 model User {
-  id       Int       @id @default(autoincrement())
-  email    String    @unique
-  name     String
-  githubId Int       @unique
-  projects Project[]
+  id                Int       @id @default(autoincrement())
+  email             String?   @unique
+  name              String
+  githubId          Int       @unique
+  githubAccessToken String
+  projects          Project[]
 }
 
 model Project {
   id         Int    @id @default(autoincrement())
   name       String
-  repoUrl    String
+  repoId     String
   branchName String
   schemaPath String
+  apolloKey  String
   userId     Int    @unique
   user       User   @relation(fields: [userId], references: [id])
 }
