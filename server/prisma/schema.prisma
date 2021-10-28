@@ -26,6 +26,6 @@ model Project {
   branchName String
   schemaPath String
   apolloKey  String
-  userId     Int    @unique
+  userId     Int
   user       User   @relation(fields: [userId], references: [id])
 }

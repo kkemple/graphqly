@@ -2,21 +2,11 @@ import React from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { gql, useQuery } from "@apollo/client";
+import { LIST_PROJECTS } from "../queries";
 
 const AuthCheck = dynamic(() => import("../components/AuthCheck"), {
   ssr: false,
 });
-
-const LIST_PROJECTS = gql`
-  query Me {
-    me {
-      projects {
-        id
-        name
-      }
-    }
-  }
-`;
 
 function ListProjects() {
   const { data, loading, error } = useQuery(LIST_PROJECTS);

@@ -66,6 +66,10 @@ async function startApolloServer() {
         const { id } = jwt.verify(token, process.env.JWT_SECRET);
         const user = await prisma.user.findUnique({ where: { id } });
 
+        if (!user) {
+          throw new Error("User not found");
+        }
+
         const github = new GraphQLClient("https://api.github.com/graphql", {
           headers: {
             authorization: `Bearer ${user.githubAccessToken}`,

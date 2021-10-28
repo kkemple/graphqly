@@ -1,17 +1,19 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import { gql, useQuery } from "@apollo/client";
+import Repo from "../components/Repo";
 
 const AuthCheck = dynamic(() => import("../components/AuthCheck"), {
   ssr: false,
 });
 
 const LIST_REPOS = gql`
-  query Me {
+  query ListRepos {
     me {
       repos {
         id
         name
+        defaultBranch
       }
     }
   }
@@ -37,7 +39,7 @@ function ListRepos() {
   return (
     <ul>
       {repos.map((repo) => (
-        <li key={repo.id}>{repo.name}</li>
+        <Repo key={repo.id} repo={repo} />
       ))}
     </ul>
   );
